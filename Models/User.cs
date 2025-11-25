@@ -17,9 +17,15 @@ public partial class User
 
     public DateTime? CreatedAt { get; set; }
 
+    public string? Avatar { get; set; }
+
+    public string? Status { get; set; }
+
     public virtual ICollection<Cart> Carts { get; set; } = new List<Cart>();
 
     public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
+
+    public virtual ICollection<Reply> Replies { get; set; } = new List<Reply>();
 
     public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
 }

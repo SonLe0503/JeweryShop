@@ -18,6 +18,9 @@ packages/
 # JetBrains Rider
 .idea/
 
+appsettings.json
+appsettings.*.json
+
 # OS files
 .DS_Store
 Thumbs.db

@@ -17,7 +17,11 @@ public partial class Review
 
     public DateTime? CreatedAt { get; set; }
 
+    public string? Status { get; set; }
+
     public virtual Product? Product { get; set; }
+
+    public virtual ICollection<Reply> Replies { get; set; } = new List<Reply>();
 
     public virtual User? User { get; set; }
 }

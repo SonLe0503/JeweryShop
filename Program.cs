@@ -1,13 +1,36 @@
 ﻿using JewelryShop.Filters;
 using JewelryShop.Mappers;
 using JewelryShop.Models;
+using JewelryShop.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.OData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OData.Edm;
+using Microsoft.OData.ModelBuilder;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+IEdmModel GetEdmModel()
+{
+    var builder = new ODataConventionModelBuilder();
+
+    builder.EntitySet<User>("Users");
+    builder.EntitySet<Product>("Products");
+    builder.EntitySet<Category>("Categories");
+    builder.EntitySet<Collection>("Collections");
+
+    return builder.GetEdmModel();
+}
+builder.Services.AddScoped<EmailVerificationService>();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader());
+});
 builder.Services.AddDbContext<JewelryShopContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("MyCnn")));
 builder.Services.AddSwaggerGen(c =>
@@ -23,8 +46,8 @@ builder.Services.AddSwaggerGen(c =>
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = SecuritySchemeType.Http, // ✅ KHÔNG dùng ApiKey
-        Scheme = "Bearer",               // ✅ Chính xác
+        Type = SecuritySchemeType.Http, 
+        Scheme = "Bearer",               
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
         Description = "Nhập token ở dạng: Bearer {token}"
@@ -33,7 +56,17 @@ builder.Services.AddSwaggerGen(c =>
     // Áp dụng yêu cầu bảo mật cho tất cả endpoint có [Authorize]
     c.OperationFilter<AuthorizeCheckOperationFilter>();
 });
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddOData(opt =>
+    {
+        opt.Select()
+           .Filter()
+           .OrderBy()
+           .Expand()
+           .Count()
+           .SetMaxTop(100)
+           .AddRouteComponents("odata", GetEdmModel());
+    });
 builder.Services.AddAutoMapper(typeof(RegisterProfile).Assembly);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
@@ -50,10 +83,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     };
 });
 var app = builder.Build();
+app.UseCors("AllowAll");
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.UseStaticFiles();
 
 app.Run();

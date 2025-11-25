@@ -19,6 +19,10 @@ public partial class JewelryShopContext : DbContext
 
     public virtual DbSet<Category> Categories { get; set; }
 
+    public virtual DbSet<Collection> Collections { get; set; }
+
+    public virtual DbSet<EmailVerification> EmailVerifications { get; set; }
+
     public virtual DbSet<Order> Orders { get; set; }
 
     public virtual DbSet<OrderDetail> OrderDetails { get; set; }
@@ -28,6 +32,8 @@ public partial class JewelryShopContext : DbContext
     public virtual DbSet<Product> Products { get; set; }
 
     public virtual DbSet<ProductImage> ProductImages { get; set; }
+
+    public virtual DbSet<Reply> Replies { get; set; }
 
     public virtual DbSet<Review> Reviews { get; set; }
 
@@ -65,6 +71,46 @@ public partial class JewelryShopContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(100)
                 .IsUnicode(false);
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("Active");
+        });
+
+        modelBuilder.Entity<Collection>(entity =>
+        {
+            entity.HasKey(e => e.CollectionId).HasName("PK__Collecti__7DE6BC249119FF9B");
+
+            entity.Property(e => e.CollectionId).HasColumnName("CollectionID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("Active");
+        });
+
+        modelBuilder.Entity<EmailVerification>(entity =>
+        {
+            entity.HasKey(e => e.VerificationId);
+
+            entity.ToTable("EmailVerification");
+
+            entity.Property(e => e.VerificationId).HasColumnName("VerificationID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.Email)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.ExpirationTime).HasColumnType("datetime");
+            entity.Property(e => e.PasswordHash).HasMaxLength(255);
+            entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+            entity.Property(e => e.Token)
+                .HasMaxLength(255)
+                .IsUnicode(false);
         });
 
         modelBuilder.Entity<Order>(entity =>
@@ -79,9 +125,7 @@ public partial class JewelryShopContext : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasDefaultValue("COD");
-            entity.Property(e => e.ShippingAddress)
-                .HasMaxLength(255)
-                .IsUnicode(false);
+            entity.Property(e => e.ShippingAddress).HasMaxLength(255);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .IsUnicode(false)
@@ -138,6 +182,8 @@ public partial class JewelryShopContext : DbContext
 
             entity.Property(e => e.ProductId).HasColumnName("ProductID");
             entity.Property(e => e.CategoryId).HasColumnName("CategoryID");
+            entity.Property(e => e.CollectionId).HasColumnName("CollectionID");
+            entity.Property(e => e.Color).HasMaxLength(50);
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
@@ -148,18 +194,24 @@ public partial class JewelryShopContext : DbContext
                 .HasMaxLength(255)
                 .IsUnicode(false)
                 .HasColumnName("ImageURL");
-            entity.Property(e => e.Material)
-                .HasMaxLength(100)
-                .IsUnicode(false);
+            entity.Property(e => e.Material).HasMaxLength(100);
             entity.Property(e => e.Name)
                 .HasMaxLength(150)
                 .IsUnicode(false);
             entity.Property(e => e.Price).HasColumnType("decimal(10, 2)");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("Active");
             entity.Property(e => e.StockQuantity).HasDefaultValue(0);
 
             entity.HasOne(d => d.Category).WithMany(p => p.Products)
                 .HasForeignKey(d => d.CategoryId)
                 .HasConstraintName("FK__Products__Catego__4222D4EF");
+
+            entity.HasOne(d => d.Collection).WithMany(p => p.Products)
+                .HasForeignKey(d => d.CollectionId)
+                .HasConstraintName("FK_Products_Collections");
         });
 
         modelBuilder.Entity<ProductImage>(entity =>
@@ -179,6 +231,31 @@ public partial class JewelryShopContext : DbContext
                 .HasConstraintName("FK__ProductIm__Produ__60A75C0F");
         });
 
+        modelBuilder.Entity<Reply>(entity =>
+        {
+            entity.HasKey(e => e.ReplyId).HasName("PK__Replies__C25E462966E0340C");
+
+            entity.Property(e => e.ReplyId).HasColumnName("ReplyID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.ReviewId).HasColumnName("ReviewID");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("Visible");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
+
+            entity.HasOne(d => d.Review).WithMany(p => p.Replies)
+                .HasForeignKey(d => d.ReviewId)
+                .HasConstraintName("FK__Replies__ReviewI__787EE5A0");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Replies)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__Replies__UserID__797309D9");
+        });
+
         modelBuilder.Entity<Review>(entity =>
         {
             entity.HasKey(e => e.ReviewId).HasName("PK__Reviews__74BC79AE1851E538");
@@ -188,6 +265,10 @@ public partial class JewelryShopContext : DbContext
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
             entity.Property(e => e.ProductId).HasColumnName("ProductID");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("Visible");
             entity.Property(e => e.UserId).HasColumnName("UserID");
 
             entity.HasOne(d => d.Product).WithMany(p => p.Reviews)
@@ -206,6 +287,9 @@ public partial class JewelryShopContext : DbContext
             entity.HasIndex(e => e.Email, "UQ__Users__A9D10534A8C116BB").IsUnique();
 
             entity.Property(e => e.UserId).HasColumnName("UserID");
+            entity.Property(e => e.Avatar)
+                .HasMaxLength(255)
+                .IsUnicode(false);
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
@@ -222,6 +306,10 @@ public partial class JewelryShopContext : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasDefaultValue("Customer");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("Active");
         });
 
         OnModelCreatingPartial(modelBuilder);

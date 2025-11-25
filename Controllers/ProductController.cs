@@ -13,18 +13,22 @@ namespace JewelryShop.Controllers
     {
         private readonly JewelryShopContext _context;
         private readonly IMapper _mapper;
+        private readonly IWebHostEnvironment _env;
 
-        public ProductController(JewelryShopContext context, IMapper mapper)
+        public ProductController(JewelryShopContext context, IMapper mapper,IWebHostEnvironment env)
         {
             _context = context;
             _mapper = mapper;
+            _env = env;
         }
 
         [HttpGet]
+
         public IActionResult GetAllProducts()
         {
             var products = _context.Products
                 .Include(p => p.Category) // nếu bạn muốn lấy luôn thông tin Category
+                .Include(p => p.Collection)
                 .ToList();
 
             var result = _mapper.Map<List<ProductDTO>>(products);
@@ -37,6 +41,7 @@ namespace JewelryShop.Controllers
         {
             var product = _context.Products
                 .Include(p => p.Category)
+                .Include(p => p.Collection)
                 .Include(p => p.ProductImages)
                 .Include(p => p.Reviews)
                 .ThenInclude(r => r.User) // nếu bạn muốn lấy thông tin người dùng của đánh giá
@@ -48,15 +53,39 @@ namespace JewelryShop.Controllers
         }
         [HttpPost]
         [Authorize(Roles = "Admin")]
-        public IActionResult CreateProduct([FromBody] ProductRequest request )
+        public async Task<IActionResult> CreateProduct([FromForm] ProductRequest request )
         {
+            if (request.CategoryId == 0)
+                request.CategoryId = null;
+
+            if (request.CollectionId == 0)
+                request.CollectionId = null;
             if (request.CategoryId.HasValue && !_context.Categories.Any(c => c.CategoryId == request.CategoryId))
-            {
                 return BadRequest(new { message = "Danh mục không tồn tại" });
-            }
 
             if (string.IsNullOrEmpty(request.Name) || !request.Price.HasValue)
                 return BadRequest(new { message = "Name và Price là bắt buộc" });
+
+            string? imageUrl = null;
+
+            // 📂 Upload ảnh nếu có
+            if (request.ImageFile != null && request.ImageFile.Length > 0)
+            {
+                string uploadPath = Path.Combine(_env.WebRootPath, "uploads", "products");
+                if (!Directory.Exists(uploadPath))
+                    Directory.CreateDirectory(uploadPath);
+
+                var fileName = Guid.NewGuid().ToString() + Path.GetExtension(request.ImageFile.FileName);
+                var filePath = Path.Combine(uploadPath, fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await request.ImageFile.CopyToAsync(stream);
+                }
+
+                // đường dẫn tương đối lưu trong DB
+                imageUrl = $"/uploads/products/{fileName}";
+            }
 
             var product = new Product
             {
@@ -66,60 +95,101 @@ namespace JewelryShop.Controllers
                 Discount = request.Discount,
                 StockQuantity = request.StockQuantity,
                 Material = request.Material,
-                ImageUrl = request.ImageUrl,
+                ImageUrl = imageUrl,
+                Color = request.Color,
+                Story = request.Story,
                 CategoryId = request.CategoryId,
-                CreatedAt = DateTime.Now
+                CollectionId = request.CollectionId,
+                CreatedAt = DateTime.Now,
             };
 
             _context.Products.Add(product);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
+
             var productDto = _mapper.Map<ProductDTO>(product);
-            return Ok(new {message = "Tạo sản phẩm thành công", product = productDto });
-        }
-        [Authorize(Roles = "Admin")]
-        [HttpPost]
-        public IActionResult AddProductImage(int productId, [FromBody] AddProductImageRequest request)
-        {
-            var product = _context.Products.FirstOrDefault(p => p.ProductId == productId);
-            if (product == null)
-            {
-                return NotFound(new { message = "Sản phẩm không tồn tại" });
-            }
-
-            var productImage = new ProductImage
-            {
-                ProductId = productId,
-                ImageUrl = request.ImageUrl
-            };
-
-            _context.ProductImages.Add(productImage);
-            _context.SaveChanges();
-
-            return Ok(new { message = "Thêm ảnh thành công", imageUrl = request.ImageUrl });
+            return Ok(new { message = "Tạo sản phẩm thành công", product = productDto });
         }
 
         [Authorize(Roles = "Admin")]
-        [HttpPut]
-        public IActionResult EditProduct(int productId, [FromBody] ProductRequest request)
+        [HttpPut("{productId}")]
+        public async Task<IActionResult> EditProduct(int productId, [FromForm] ProductRequest request)
         {
-            var product = _context.Products.FirstOrDefault(p => p.ProductId == productId);
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductId == productId);
             if (product == null)
                 return NotFound(new { message = "Sản phẩm không tồn tại" });
 
+            // ✅ Cập nhật thông tin cơ bản nếu có
             if (!string.IsNullOrEmpty(request.Name)) product.Name = request.Name;
             if (!string.IsNullOrEmpty(request.Description)) product.Description = request.Description;
             if (request.Price.HasValue) product.Price = request.Price.Value;
             if (request.Discount.HasValue) product.Discount = request.Discount.Value;
             if (request.StockQuantity.HasValue) product.StockQuantity = request.StockQuantity.Value;
             if (!string.IsNullOrEmpty(request.Material)) product.Material = request.Material;
-            if (!string.IsNullOrEmpty(request.ImageUrl)) product.ImageUrl = request.ImageUrl;
-            if (request.CategoryId.HasValue) product.CategoryId = request.CategoryId;
+            if (!string.IsNullOrEmpty(request.Story)) product.Story = request.Story;
+            if (!string.IsNullOrEmpty(request.Color)) product.Color = request.Color;
 
-            _context.SaveChanges();
+            if (request.CategoryId == 0)
+                request.CategoryId = null;
+            if (request.CollectionId == 0)
+                request.CollectionId = null;
+
+            if (request.CategoryId.HasValue)
+                product.CategoryId = request.CategoryId;
+            if (request.CollectionId.HasValue)
+                product.CollectionId = request.CollectionId;
+
+            // ✅ Nếu có file ảnh mới, upload và thay thế ảnh cũ
+            if (request.ImageFile != null && request.ImageFile.Length > 0)
+            {
+                string uploadPath = Path.Combine(_env.WebRootPath, "uploads", "products");
+                if (!Directory.Exists(uploadPath))
+                    Directory.CreateDirectory(uploadPath);
+
+                // Xóa ảnh cũ (nếu có)
+                if (!string.IsNullOrEmpty(product.ImageUrl))
+                {
+                    var oldImagePath = Path.Combine(_env.WebRootPath, product.ImageUrl.TrimStart('/'));
+                    if (System.IO.File.Exists(oldImagePath))
+                        System.IO.File.Delete(oldImagePath);
+                }
+
+                // Upload ảnh mới
+                var fileName = Guid.NewGuid().ToString() + Path.GetExtension(request.ImageFile.FileName);
+                var filePath = Path.Combine(uploadPath, fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await request.ImageFile.CopyToAsync(stream);
+                }
+
+                product.ImageUrl = $"/uploads/products/{fileName}";
+            }
+
+            await _context.SaveChangesAsync();
 
             var productDto = _mapper.Map<ProductDTO>(product);
             return Ok(new { message = "Cập nhật sản phẩm thành công", product = productDto });
         }
+
+        [Authorize]
+        [HttpPatch("{productId}/update-stock")]
+        public async Task<IActionResult> UpdateProductStock(int productId, [FromBody] UpdateStockRequest request)
+        {
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductId == productId);
+            if (product == null)
+                return NotFound(new { message = "Sản phẩm không tồn tại" });
+
+            if (!request.StockQuantity.HasValue)
+                return BadRequest(new { message = "StockQuantity là bắt buộc" });
+
+            // Cập nhật số lượng
+            product.StockQuantity = request.StockQuantity.Value;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Cập nhật số lượng sản phẩm thành công", stockQuantity = product.StockQuantity });
+        }
+
         [Authorize(Roles = "Admin")]
         [HttpDelete]
         public IActionResult DeleteProduct(int productId)
@@ -142,7 +212,8 @@ namespace JewelryShop.Controllers
                 _context.Reviews.RemoveRange(product.Reviews);
             }
 
-            _context.Products.Remove(product);
+            product.Status = "Deleted";
+            //_context.Products.Remove(product);
             _context.SaveChanges();
 
             return Ok(new { message = "Xóa sản phẩm thành công" });
