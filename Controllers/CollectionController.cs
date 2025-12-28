@@ -71,17 +71,18 @@ namespace JewelryShop.Controllers
         [HttpDelete("{id}")]
         public IActionResult DeleteCollection(int id)
         {
-            var category = _context.Collections
+            var collection = _context.Collections
                 .Include(c => c.Products)
                 .FirstOrDefault(c => c.CollectionId == id);
 
-            if (category == null)
+            if (collection == null)
                 return NotFound(new { message = "BST không tồn tại" });
 
-            if (category.Products.Any())
+            if (collection.Products.Any())
                 return BadRequest(new { message = "Không thể xóa BST vì vẫn còn sản phẩm trong danh mục này" });
 
-            category.Status = "Deleted";
+            //collection.Status = "Deleted";
+            _context.Remove(collection);
             _context.SaveChanges();
 
             return Ok(new { message = "Xóa BST thành công" });

@@ -15,13 +15,19 @@ public partial class JewelryShopContext : DbContext
     {
     }
 
+    public virtual DbSet<BotResponse> BotResponses { get; set; }
+
     public virtual DbSet<Cart> Carts { get; set; }
 
     public virtual DbSet<Category> Categories { get; set; }
 
+    public virtual DbSet<ChatRoom> ChatRooms { get; set; }
+
     public virtual DbSet<Collection> Collections { get; set; }
 
     public virtual DbSet<EmailVerification> EmailVerifications { get; set; }
+
+    public virtual DbSet<Message> Messages { get; set; }
 
     public virtual DbSet<Order> Orders { get; set; }
 
@@ -43,6 +49,17 @@ public partial class JewelryShopContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<BotResponse>(entity =>
+        {
+            entity.HasKey(e => e.BotResponseId).HasName("PK__BotRespo__7FC3465C604B457B");
+
+            entity.Property(e => e.BotResponseId).HasColumnName("BotResponseID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.Keyword).HasMaxLength(100);
+        });
+
         modelBuilder.Entity<Cart>(entity =>
         {
             entity.HasKey(e => e.CartId).HasName("PK__Cart__51BCD79723D69380");
@@ -75,6 +92,31 @@ public partial class JewelryShopContext : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasDefaultValue("Active");
+        });
+
+        modelBuilder.Entity<ChatRoom>(entity =>
+        {
+            entity.HasKey(e => e.ChatRoomId).HasName("PK__ChatRoom__69733F1717B70CF1");
+
+            entity.Property(e => e.ChatRoomId).HasColumnName("ChatRoomID");
+            entity.Property(e => e.AdminId).HasColumnName("AdminID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.OrderId).HasColumnName("OrderID");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("Active");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
+
+            entity.HasOne(d => d.Admin).WithMany(p => p.ChatRoomAdmins).HasForeignKey(d => d.AdminId);
+
+            entity.HasOne(d => d.Order).WithMany(p => p.ChatRooms).HasForeignKey(d => d.OrderId);
+
+            entity.HasOne(d => d.User).WithMany(p => p.ChatRoomUsers)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull);
         });
 
         modelBuilder.Entity<Collection>(entity =>
@@ -111,6 +153,32 @@ public partial class JewelryShopContext : DbContext
             entity.Property(e => e.Token)
                 .HasMaxLength(255)
                 .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.HasKey(e => e.MessageId).HasName("PK__Messages__C87C037C3327A1DF");
+
+            entity.Property(e => e.MessageId).HasColumnName("MessageID");
+            entity.Property(e => e.ChatRoomId).HasColumnName("ChatRoomID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.IsBot).HasDefaultValue(false);
+            entity.Property(e => e.SenderId).HasColumnName("SenderID");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("Sent");
+
+            entity.HasOne(d => d.ChatRoom).WithMany(p => p.Messages)
+                .HasForeignKey(d => d.ChatRoomId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Messages_ChatRooms");
+
+            entity.HasOne(d => d.Sender).WithMany(p => p.Messages)
+                .HasForeignKey(d => d.SenderId)
+                .HasConstraintName("FK_Messages_Users_Sender");
         });
 
         modelBuilder.Entity<Order>(entity =>

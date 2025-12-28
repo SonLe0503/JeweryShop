@@ -229,7 +229,7 @@ namespace JewelryShop.Controllers
             _emailService.SendEmail(email, subject, body);
         }
 
-        [Authorize(Roles = "Admin")]
+        [Authorize]
         [HttpGet]
         public IActionResult GetAllUsers()
         {

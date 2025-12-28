@@ -8,7 +8,7 @@ namespace JewelryShop.Services
     {
         private readonly string _fromEmail = "SonLVHE172736@fpt.edu.vn";
         private readonly string _appPassword = "tkcf mtsi knfe ciew";
-        private readonly string _frontendUrl = " http://localhost:5173";
+        private readonly string _frontendUrl = "http://localhost:5173";
 
         public string GenerateVerificationToken()
         {

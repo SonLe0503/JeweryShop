@@ -1,4 +1,5 @@
 ﻿using JewelryShop.Filters;
+using JewelryShop.Hubs;
 using JewelryShop.Mappers;
 using JewelryShop.Models;
 using JewelryShop.Services;
@@ -24,12 +25,15 @@ IEdmModel GetEdmModel()
     return builder.GetEdmModel();
 }
 builder.Services.AddScoped<EmailVerificationService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IBotService, BotService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("https://shop.hijean.io.vn", "https://hijean.io.vn", "http://localhost:5173")
+              .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowAnyHeader());
+              .AllowCredentials());
 });
 builder.Services.AddDbContext<JewelryShopContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("MyCnn")));
@@ -71,9 +75,10 @@ builder.Services.AddAutoMapper(typeof(RegisterProfile).Assembly);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
     var jwtSettings = builder.Configuration.GetSection("Jwt");
+    //var validAudiences = jwtSettings.GetSection("Audience").Get<string[]>();
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = false,
+        ValidateIssuer = true,
         ValidateAudience = false,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
@@ -82,13 +87,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]))
     };
 });
+builder.Services.AddSignalR();
 var app = builder.Build();
+app.UseStaticFiles();
+app.UseRouting();
 app.UseCors("AllowAll");
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.UseStaticFiles();
+app.MapHub<ChatHub>("/chathub").RequireCors("AllowAll");
 
 app.Run();

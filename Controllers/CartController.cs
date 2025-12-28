@@ -27,8 +27,23 @@ namespace JewelryShop.Controllers
                 .Include(c => c.Product)
                 .ThenInclude(p => p.Category)
                 .Where(c => c.UserId == userId).ToList();
-            var result = _mapper.Map<List<CartDTO>>(carts);
-            return Ok(result);
+            var cartDTOs = carts.Select(c =>
+            {
+                var unitPrice = c.Product.Price - (c.Product?.Discount ?? 0);
+                return new CartDTO
+                {
+                    CartId = c.CartId,
+                    UserId = c.UserId ?? 0,
+                    ProductId = c.ProductId ?? 0,
+                    Quantity = c.Quantity,
+                    ProductName = c.Product.Name,
+                    CategoryName = c.Product.Category.Name,
+                    UnitPrice = unitPrice,
+                    TotalPrice = unitPrice * c.Quantity,
+                    ImgUrl = c.Product.ImageUrl
+                };
+            }).ToList();
+            return Ok(cartDTOs);
         }
 
         [HttpPost]

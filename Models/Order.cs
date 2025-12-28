@@ -19,6 +19,8 @@ public partial class Order
 
     public string? ShippingAddress { get; set; }
 
+    public virtual ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();
+
     public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
 
     public virtual ICollection<PaymentTransaction> PaymentTransactions { get; set; } = new List<PaymentTransaction>();

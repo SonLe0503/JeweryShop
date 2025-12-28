@@ -23,6 +23,12 @@ public partial class User
 
     public virtual ICollection<Cart> Carts { get; set; } = new List<Cart>();
 
+    public virtual ICollection<ChatRoom> ChatRoomAdmins { get; set; } = new List<ChatRoom>();
+
+    public virtual ICollection<ChatRoom> ChatRoomUsers { get; set; } = new List<ChatRoom>();
+
+    public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
+
     public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
 
     public virtual ICollection<Reply> Replies { get; set; } = new List<Reply>();

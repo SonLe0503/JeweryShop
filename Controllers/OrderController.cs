@@ -148,11 +148,16 @@ namespace JewelryShop.Controllers
         [HttpDelete("{id}")]
         public IActionResult DeleteOrder(int id)
         {
-            var order = _context.Orders.Include(o => o.OrderDetails).FirstOrDefault(o => o.OrderId == id);
+            var order = _context.Orders
+                .Include(o => o.OrderDetails)
+                .Include(o => o.PaymentTransactions)
+                .FirstOrDefault(o => o.OrderId == id);
             if (order == null)
             {
                 return NotFound(new { message = "Không tìm thấy đơn hàng" });
             }
+            if (order.PaymentTransactions != null)
+                _context.PaymentTransactions.RemoveRange(order.PaymentTransactions);
             _context.OrderDetails.RemoveRange(order.OrderDetails);
             _context.Orders.Remove(order);
             _context.SaveChanges();
